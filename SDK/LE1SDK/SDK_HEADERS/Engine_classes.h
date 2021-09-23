@@ -11866,7 +11866,8 @@ UClass* UKMeshProps::pClassPointer = NULL;
 class ULevelBase : public UObject
 {
 public:
-	unsigned char                                      UnknownData00[ 0x70 ];                            		// 0x0060 (0x0070) MISSED OFFSET
+	struct TTransArray<class AActor*>                  Actors;                                                  // 0x0060 (0x0018)
+	struct FURL                                        URL;                                                     // 0x0078 (0x0058)
 
 private:
 	static UClass* pClassPointer;

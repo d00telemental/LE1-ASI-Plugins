@@ -88,7 +88,15 @@ public:
 		return this->Data[ i ]; 
 	}; 
 
-}; 
+};
+
+template<typename T>
+struct TTransArray : public TArray<T>
+{
+	UObject* Owner;
+};
+
+
 
 /** Packed index DWORD as seen in FNameEntry. */
 struct PackedIndex

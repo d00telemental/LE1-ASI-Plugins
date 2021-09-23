@@ -5,15 +5,20 @@
 #include <ostream>
 #include <streambuf>
 #include <sstream>
+#include <vector>
 #include "../Interface.h"
 #include "../Common.h"
 #include "../SDK/LE1SDK/SdkHeaders.h"
+#include "../ME3TweaksHeader.h"
 
 #define SLHHOOK "LE1StreamingLevelsHUD_"
 
 SPI_PLUGINSIDE_SUPPORT(L"LE1StreamingLevelsHUD", L"Mgamerz", L"2.0.0", SPI_GAME_LE1, SPI_VERSION_LATEST);
 SPI_PLUGINSIDE_POSTLOAD;
 SPI_PLUGINSIDE_ASYNCATTACH;
+
+
+ME3TweaksASILogger logger("Kismet Logger v2", "StreamingLevelsHUDLog.txt");
 
 
 // ======================================================================
@@ -118,6 +123,13 @@ void biohud_hook(UObject* Context, UFunction* Function, void* Parms, void* Resul
 				//logger.writeToConsoleOnly(string_format("Number of streaming levels: %d\n", hud->WorldInfo->StreamingLevels.Count), true);
 				if (hud->WorldInfo->StreamingLevels.Any()) {
 					int yIndex = 3; //Start at line 3 (starting at 0)
+
+					// d00t - additional diagnostics
+					// ----------------------------------------
+					std::vector<AActor*> actors{};
+					// ----------------------------------------
+					// end of additional diagnostics - d00t
+
 					for (int i = 0; i < hud->WorldInfo->StreamingLevels.Count; i++) {
 						std::wstringstream ss;
 						ULevelStreaming* sl = hud->WorldInfo->StreamingLevels.Data[i];
@@ -166,6 +178,69 @@ void biohud_hook(UObject* Context, UFunction* Function, void* Parms, void* Resul
 								g = 175;
 								b = 0;
 							}
+
+							// d00t - additional diagnostics
+							// ----------------------------------------
+							ss << "            0x" << std::hex << (unsigned long long)(void*)sl << std::dec;
+
+							std::vector<AActor*> prevReferencedActors{ };
+							prevReferencedActors.reserve(10);
+							
+							if (auto loadedLevel = sl->LoadedLevel; loadedLevel != nullptr)
+							{
+								ss << "  actor count: " << loadedLevel->Actors.Count;
+
+								for (const auto& actor : std::vector<AActor*>{ loadedLevel->Actors.Data, loadedLevel->Actors.Data + loadedLevel->Actors.Count })
+								{
+									if (actor == nullptr)
+									{
+										continue;
+									}
+
+									if (std::find(actors.begin(), actors.end(), actor) == actors.end())
+									{
+										actors.push_back(actor);
+									}
+									else
+									{
+										prevReferencedActors.push_back(actor);
+									}
+								}
+
+								if (prevReferencedActors.size() > 0)
+								{
+									r = 255; g = b = 0;
+									ss << "  HAS ACTORS REFERENCED BY PREVIOUS STREAMINGLEVELS ( " << prevReferencedActors.size() << " )";
+								}
+							}
+
+							if (prevReferencedActors.size() > 0)
+							{
+								std::ostringstream logEntry{};
+
+								logEntry << sl->PackageName.GetName();
+								if (sl->PackageName.Number > 0)
+								{
+									logEntry << "_" << sl->PackageName.Number;
+								}
+								logEntry << "\n";
+
+								logEntry << " ACTORS REFERENCED BY PREVIOUS STREAMINGLEVELS: \n";
+								logEntry << " ---------------------------------------------- \n";
+
+								for (const auto& actor : prevReferencedActors)
+								{
+									logEntry << "  * " << (actor ? actor->GetFullName() : "(null)") << "\n";
+								}
+
+								logEntry << " ---------------------------------------------- \n";
+
+								logger.writeToLog(logEntry.str(), false, true);
+							}
+
+							// ----------------------------------------
+							// end of additional diagnostics - d00t
+
 							const std::wstring msg = ss.str();
 							RenderTextSLH(msg, 5, yIndex * 12.0f, r, g, b, 1.0f, hud->Canvas);
 							yIndex++;
